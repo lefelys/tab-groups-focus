@@ -1,0 +1,20 @@
+{
+    "manifest_version": 3,
+    "name": "Tab Groups Focus",
+    "description": "Automatically open new tabs in active Tab Group",
+    "version": "1.0",
+    "action": {},
+    "permissions": [
+        "activeTab",
+        "tabs",
+        "tabGroups"
+    ],
+    "icons": {
+        "16": "icons/icon-16.png",
+        "48": "icons/icon-48.png",
+        "128": "icons/icon-128.png"
+    },
+    "background": {
+        "service_worker": "background.js"
+    }
+}
