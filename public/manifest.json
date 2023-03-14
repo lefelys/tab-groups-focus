@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
     "name": "Tab Groups Focus",
-    "description": "Automatically open new tabs in active Tab Group",
-    "version": "1.0",
+    "description": "Automatically open new tabs in active tab's Tab Group",
+    "version": "1.1",
     "action": {},
     "permissions": [
         "activeTab",

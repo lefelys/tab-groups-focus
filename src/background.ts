@@ -1,6 +1,15 @@
 // last active tabs by window ids
 let lastActiveTabs: { [key: number]: number } = {};
 
+// On extension load - fill lastActiveTabs
+chrome.tabs.query({ active: true }, (tabs) => {
+  tabs.forEach((tab) => {
+    if (tab.id !== undefined) {
+      lastActiveTabs[tab.windowId] = tab.id;
+    }
+  });
+});
+
 chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
   lastActiveTabs[windowId] = tabId;
 });
@@ -20,8 +29,10 @@ chrome.tabs.onCreated.addListener(async (tab) => {
     .catch((e) => console.warn(e));
   if (!group || group.collapsed) return;
 
-  chrome.tabs.group({
-    groupId: prevGroupId,
-    tabIds: tab.id,
-  });
+  chrome.tabs
+    .group({
+      groupId: prevGroupId,
+      tabIds: tab.id,
+    })
+    .catch((e) => console.warn(e));
 });
