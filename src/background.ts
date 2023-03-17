@@ -14,68 +14,49 @@ async function getActiveTabs() {
   return lastActiveTabs;
 }
 
-// last active tabs by window ids
-const key = 'activeTabs';
-
 getActiveTabs().then(async (res) => {
-  await chrome.storage.local.set({ [key]: res });
+  await chrome.storage.local.set(res);
   if (chrome.runtime.lastError) {
     console.warn(chrome.runtime.lastError);
   }
 });
 
 chrome.tabs.onActivated.addListener(async ({ tabId, windowId }) => {
-  await chrome.storage.local.get(key).then(async (result) => {
-    if (chrome.runtime.lastError) {
-      console.warn(chrome.runtime.lastError);
-    }
-
-    let lastActiveTabs = result[key];
-    lastActiveTabs[windowId] = tabId;
-
-    // console.log(66666, lastActiveTabs);
-
-    await chrome.storage.local.set({ [key]: lastActiveTabs });
-    if (chrome.runtime.lastError) {
-      console.warn(chrome.runtime.lastError);
-    }
-  });
+  await chrome.storage.local.set({ [windowId]: tabId });
+  if (chrome.runtime.lastError) {
+    console.warn(chrome.runtime.lastError);
+  }
 });
 
 chrome.tabs.onCreated.addListener(async (tab) => {
-  let lastActiveTabs: { [key: number]: number } | undefined;
+  await chrome.storage.local
+    .get(tab.windowId.toString())
+    .then(async (result) => {
+      if (chrome.runtime.lastError) {
+        console.warn(chrome.runtime.lastError);
+      }
 
-  await chrome.storage.local.get(key).then((result) => {
-    if (chrome.runtime.lastError) {
-      console.warn(chrome.runtime.lastError);
-    }
+      let prevTabId = result[tab.windowId];
+      if (!prevTabId) return;
 
-    lastActiveTabs = result[key];
-  });
+      let prevTab = await chrome.tabs
+        .get(prevTabId)
+        .catch((e) => console.warn(e));
+      if (!prevTab) return;
 
-  if (!lastActiveTabs) return;
+      let prevGroupId = prevTab.groupId;
+      if (prevGroupId <= 0) return;
 
-  let prevTabId = lastActiveTabs[tab.windowId];
+      let group = await chrome.tabGroups
+        .get(prevGroupId)
+        .catch((e) => console.warn(e));
+      if (!group || group.collapsed) return;
 
-  //   console.log('tab.windowId', tab.windowId);
-
-  if (!prevTabId) return;
-
-  let prevTab = await chrome.tabs.get(prevTabId).catch((e) => console.warn(e));
-  if (!prevTab) return;
-
-  let prevGroupId = prevTab.groupId;
-  if (prevGroupId <= 0) return;
-
-  let group = await chrome.tabGroups
-    .get(prevGroupId)
-    .catch((e) => console.warn(e));
-  if (!group || group.collapsed) return;
-
-  chrome.tabs
-    .group({
-      groupId: prevGroupId,
-      tabIds: tab.id,
-    })
-    .catch((e) => console.warn(e));
+      chrome.tabs
+        .group({
+          groupId: prevGroupId,
+          tabIds: tab.id,
+        })
+        .catch((e) => console.warn(e));
+    });
 });
