@@ -1,5 +1,5 @@
-// On extension load - fill lastActiveTabs
-async function getActiveTabs() {
+// Save active tabs per window to storage
+async function savetActiveTabs() {
   let lastActiveTabs: { [key: string]: number } = {};
 
   await chrome.tabs.query({ active: true }).then((tabs) =>
@@ -11,30 +11,28 @@ async function getActiveTabs() {
     })
   );
 
-  return lastActiveTabs;
+  await chrome.storage.local.set(lastActiveTabs);
+  if (chrome.runtime.lastError) console.warn(chrome.runtime.lastError);
 }
 
-getActiveTabs().then(async (res) => {
-  await chrome.storage.local.set(res);
-  if (chrome.runtime.lastError) {
-    console.warn(chrome.runtime.lastError);
-  }
-});
+savetActiveTabs();
 
 chrome.tabs.onActivated.addListener(async ({ tabId, windowId }) => {
   await chrome.storage.local.set({ [windowId]: tabId });
-  if (chrome.runtime.lastError) {
-    console.warn(chrome.runtime.lastError);
-  }
+  if (chrome.runtime.lastError) console.warn(chrome.runtime.lastError);
+});
+
+// Delete all items from storage to avoid memory leak, and fill active tabs again
+chrome.windows.onRemoved.addListener(async () => {
+  await chrome.storage.local.clear();
+  await savetActiveTabs();
 });
 
 chrome.tabs.onCreated.addListener(async (tab) => {
   await chrome.storage.local
     .get(tab.windowId.toString())
     .then(async (result) => {
-      if (chrome.runtime.lastError) {
-        console.warn(chrome.runtime.lastError);
-      }
+      if (chrome.runtime.lastError) console.warn(chrome.runtime.lastError);
 
       let prevTabId = result[tab.windowId];
       if (!prevTabId) return;
