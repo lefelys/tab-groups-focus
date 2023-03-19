@@ -15,7 +15,19 @@ async function savetActiveTabs() {
   if (chrome.runtime.lastError) console.warn(chrome.runtime.lastError);
 }
 
-savetActiveTabs();
+chrome.runtime.onInstalled.addListener(async function () {
+  await savetActiveTabs();
+});
+
+const startupTimeFreezeKey = 'startupTimeFreeze';
+
+chrome.runtime.onStartup.addListener(async function () {
+  await chrome.storage.local.clear();
+
+  // freeze extension for 2 seconds on startup to avoid adding all tabs from previous session
+  // to the last tab group
+  await setFreezeDeadline();
+});
 
 chrome.tabs.onActivated.addListener(async ({ tabId, windowId }) => {
   await chrome.storage.local.set({ [windowId]: tabId });
@@ -28,11 +40,43 @@ chrome.windows.onRemoved.addListener(async () => {
   await savetActiveTabs();
 });
 
+// set freeze deadline for 2 seconds
+async function setFreezeDeadline() {
+  let freezeUntil = new Date();
+  freezeUntil.setSeconds(freezeUntil.getSeconds() + 2);
+
+  await chrome.storage.local.set({
+    [startupTimeFreezeKey]: freezeUntil.getTime(),
+  });
+  if (chrome.runtime.lastError) console.warn(chrome.runtime.lastError);
+}
+
+// check if freeze is active
+async function isFrozen() {
+  let isFrozen = false;
+  await chrome.storage.local.get(startupTimeFreezeKey).then(async (result) => {
+    if (chrome.runtime.lastError) console.warn(chrome.runtime.lastError);
+
+    let ms = result[startupTimeFreezeKey];
+    if (ms && ms > 0) {
+      if (new Date() < new Date(ms)) {
+        isFrozen = true;
+      }
+    }
+  });
+
+  return isFrozen;
+}
+
 chrome.tabs.onCreated.addListener(async (tab) => {
   await chrome.storage.local
     .get(tab.windowId.toString())
     .then(async (result) => {
       if (chrome.runtime.lastError) console.warn(chrome.runtime.lastError);
+
+      if (await isFrozen()) {
+        return;
+      }
 
       let prevTabId = result[tab.windowId];
       if (!prevTabId) return;
